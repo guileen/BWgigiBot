@@ -8,6 +8,18 @@
 using namespace std;
 namespace BWSim {
 
+  enum UnitState {
+    UnitStateIdle=0,
+    UnitStateBusy,
+    UnitStateMineMinerals,
+    UnitStateMineGas,
+    UnitStateRetrunMinerals,
+    UnitStateRetrunGas,
+    UnitStateMove,
+    UnitStateAttack,
+    UnitStateMax
+  };
+
   class Game;
   class Player;
   class Unit {
@@ -19,6 +31,7 @@ namespace BWSim {
       bool isPowered=true;
       // basic
       int hitPoints;
+      UnitState state;
 
       // build or morph
       UnitType* buildType;
@@ -47,11 +60,12 @@ namespace BWSim {
       void doneBuild(UnitType* type);
     public:
       // ...
-      void update();
+      void update(int n);
       // different unit have different build action.
       // lurker
-      void gather();
-      void returnCargo();
+      void setState(UnitState state);
+      void mineMinerals();
+      void mineGas();
       void morph(const UnitType* type);
       void build(const UnitType* type);
       void train(const UnitType* type);

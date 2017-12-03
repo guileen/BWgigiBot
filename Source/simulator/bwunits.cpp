@@ -9,14 +9,14 @@ namespace BWSim {
     this->hitPoints = type->maxHitPoints;
   }
 
-  void Unit::update() {
-    std::cout << this->type->name << isPowered << buildRemainTime << trainingRemainTime << researchRemainTime << "\n";
+  void Unit::update(int n) {
+    // std::cout << this->type->name << isPowered << buildRemainTime << trainingRemainTime << researchRemainTime << "\n";
     if(!isPowered) {
       return;
     }
     // update build
     if(buildType) {
-      buildRemainTime--;
+      buildRemainTime-=n;
       if(buildRemainTime<=0) {
         // done build
         this->doneBuild(buildType);
@@ -31,7 +31,7 @@ namespace BWSim {
 
     // update research
     if(researchType) {
-      researchRemainTime --;
+      researchRemainTime -=n;
       if(researchRemainTime<=0) {
         // research done.
         player->doneReasearch(researchType);
@@ -41,7 +41,7 @@ namespace BWSim {
 
     // update upgrade
     if(upgradeType) {
-      upgradeRemainTime --;
+      upgradeRemainTime -=n;
       if(upgradeRemainTime<=0) {
         // upgrade done.
         player->doneUpgrade(upgradeType);
@@ -58,7 +58,7 @@ namespace BWSim {
         }
       }
       if(isTraining) {
-        trainingRemainTime --;
+        trainingRemainTime -=n;
         if(trainingRemainTime<=0) {
           auto trainType = trainingQueue.front();
           player->createUnit(trainType);
@@ -66,7 +66,7 @@ namespace BWSim {
           // trainNext
           trainType = trainingQueue.front();
           if(trainType) {
-            trainingRemainTime = trainType->buildTime;
+            trainingRemainTime += trainType->buildTime;
             isTraining = false;
           } else {
             trainingRemainTime = 0;
@@ -77,13 +77,16 @@ namespace BWSim {
 
     // update larvas
     if(this->type->producesLarva && larvas.size() < 3) {
-      larvasHatchRemainTime --;
+      larvasHatchRemainTime -=n;
       if(larvasHatchRemainTime <= 0) {
         Unit* u = player->createUnit(&Unit_Zerg_Larva);
         larvas.insert(u);
         u->hatchery = this;
         // TODO fix larvas hatch time
-        larvasHatchRemainTime = 20;
+        if ((larvas.size()) < 3)
+          larvasHatchRemainTime += 342;
+        else
+          larvasHatchRemainTime = 342;
       }
     }
   }
@@ -96,6 +99,32 @@ namespace BWSim {
     }
     buildType = (UnitType*)type;
     buildRemainTime = type->buildTime;
+  }
+
+  void Unit::setState(UnitState state) {
+    if(this->state == state) return;
+    if((state == UnitStateMineMinerals || state == UnitStateMineGas) && !this->type->isWorker) return;
+    if(this->state == UnitStateMineMinerals) {
+      player->incrMineralWorkers(-1);
+    }
+    if(this->state == UnitStateMineGas) {
+      player->incrGasWorkers(-1);
+    }
+    this->state = state;
+    if(state == UnitStateMineMinerals) {
+      player->incrMineralWorkers(1);
+    }
+    if(state == UnitStateMineGas) {
+      player->incrGasWorkers(1);
+    }
+  }
+
+  void Unit::mineMinerals() {
+    setState(UnitStateMineMinerals);
+  }
+
+  void Unit::mineGas() {
+    setState(UnitStateMineGas);
   }
 
 }

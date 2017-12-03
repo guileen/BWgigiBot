@@ -1,11 +1,13 @@
 #include <iostream>
 #include <ostream>
 #include "player.h"
+#include "webdata.h"
 namespace BWSim {
 
-  Player::Player(Game* game, Races::Enum race) {
+  Player::Player(Game* game, Races::Enum race, int region) {
     this->game = game;
     this->race = race;
+    this->startRegion = region;
     // init race ...
     if(race == Races::Zerg) {
       this->createUnit(&Unit_Zerg_Hatchery);
@@ -28,16 +30,18 @@ namespace BWSim {
     }
   }
 
-  Unit* Player::createUnit(const UnitType* type) {
+  Unit* Player::createUnit(const UnitType* type, int region) {
+    if(region == -1) region = startRegion;
     Unit* unit = new Unit();
     unit->type = (UnitType*)type;
+    unit->player = this;
     this->units.insert(unit);
     usedSupplies += type->supplyRequired;
-    completeUnit(unit);
+    completeUnit(unit, region);
     return unit;
   }
 
-  void Player::completeUnit(Unit* unit) {
+  void Player::completeUnit(Unit* unit, int region) {
     if(unit->type->requiresPsi) {
       // check psi
     }
@@ -49,6 +53,17 @@ namespace BWSim {
       for(int i=0;i<n;i++) unit->larvas.insert(this->createUnit(&Unit_Zerg_Larva));
     }
     unitCounts[unit->type->id]++;
+    if(unit->type->id == Unit_Terran_Command_Center.id ||
+        unit->type->id == Unit_Protoss_Nexus.id ||
+        unit->type->id == Unit_Zerg_Hatchery.id ||
+        unit->type->id == Unit_Zerg_Lair.id ||
+        unit->type->id == Unit_Zerg_Hive.id
+        ) {
+      // command center
+      this->commandCenterRegions.insert(region);
+      this->gasFields += this->game->getMap()->regionGasFields[region];
+      this->mineralFields += this->game->getMap()->regionMineralFields[region];
+    }
     updateAvailabelActions();
   }
 
@@ -102,29 +117,25 @@ namespace BWSim {
     // update availableCreate Units
     UnitType* utype;
     //UnitType* utype;
-    availableCreateBuildings.empty();
+    availableResActions.empty();
     for(int i=0;i<UnitTypeMax-2;i++) {
       utype = (UnitType*)&AllUnitTypes[i];
       if(checkBuildOrTrain(utype)) {
-        if(utype->isBuilding) {
-          availableCreateBuildings.insert(i);
-        } else {
-          availableCreateMen.insert(i);
-        }
+        availableResActions.insert(makeResActionId(BWTypeUnit, i));
       }
     }
     TechType* ttype;
     for(int i=0;i<TechTypeMax-2;i++) {
       ttype = (TechType*)&AllTechTypes[i];
       if(checkResearch(ttype)) {
-        availableResearchTechs.insert(i);
+        availableResActions.insert(makeResActionId(BWTypeTech, i));
       }
     }
     UpgradeType* uptype;
     for(int i=0;i<UpgradeTypeMax-2;i++) {
       uptype = (UpgradeType*)&AllUpgradeTypes[i];
       if(checkUpgrade(uptype)) {
-        availableUpgrades.insert(i);
+        availableResActions.insert(makeResActionId(BWTypeUpgrade, i));
       }
     }
 
@@ -137,26 +148,41 @@ namespace BWSim {
         out << "  " << i << ":" << AllUnitTypes[i].name << ":" << unitCounts[i] << "\n";
       }
     }
-    out << "AvailableBuildings:\n";
-    for(int id: availableCreateBuildings) {
-      out << "  " << id << ":" << AllUnitTypes[id].name << " from " << AllUnitTypes[AllUnitTypes[id].whatBuilds].name << "\n";
-    }
-    out << "AvailableResearchs:\n";
-    for(int id: availableResearchTechs) {
-      out << "  " << id << ":" << AllTechTypes[id].name << " from " << AllUnitTypes[AllTechTypes[id].whatResearches].name << "\n";
-    }
-    out << "AvailableUpgrades:\n";
-    for(int id: availableUpgrades) {
-      out << "  " << id << ":" << AllTechTypes[id].name << " from " << AllUnitTypes[AllUpgradeTypes[id].whatUpgrades].name << "\n";
-    }
-    out << "AvailableTrain:\n";
-    for(int id: availableCreateMen) {
-      out << "  " << id << ":" << AllUnitTypes[id].name << " from " << AllUnitTypes[AllUnitTypes[id].whatBuilds].name << "\n";
+    out << "allAvailableActions:\n";
+    for(int resActionId: availableResActions) {
+      BWType bwType = getBWTypeOfResActionId(resActionId);
+      int id = getTypeIdOfResActionId(resActionId);
+      switch(bwType) {
+        case BWTypeUnit:
+          out << "  Unit" << id << ":" << AllUnitTypes[id].name << " from " << AllUnitTypes[AllUnitTypes[id].whatBuilds].name << "\n";
+          break;
+        case BWTypeTech:
+          out << "  Tech" << id << ":" << AllTechTypes[id].name << " from " << AllUnitTypes[AllTechTypes[id].whatResearches].name << "\n";
+          break;
+        case BWTypeWeapon:
+          out << "Weapon";
+          break;
+        case BWTypeUpgrade:
+          out << "  Upgrade" << id << ":" << AllTechTypes[id].name << " from " << AllUnitTypes[AllUpgradeTypes[id].whatUpgrades].name << "\n";
+          break;
+        default:
+          break;
+      }
     }
   }
 
-  //vector<Action> Player::allAvailableActions() {
+  void Player::incrMineralWorkers(int i) {
+    mineralWorkers+=i;
+    // TODO: M/s should be statistic in real game.
+    // update M/s
+    mineralsPer100F = getSCVMineralsPer100F(mineralFields, mineralWorkers);
+  }
 
-  //}
+  void Player::incrGasWorkers(int i) {
+    gasWorkers+=i;
+    // TODO: G/s should be statistic in real game.
+    // update G/s
+    gasPer100F = getAnyGasPer100F(gasFields, gasWorkers);
+  }
 
 }

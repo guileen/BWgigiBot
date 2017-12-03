@@ -12,16 +12,31 @@ namespace BWSim {
     ActionBuildAddon,
     ActionSpell,
     ActionSiege,
+    ActionMineMinerals,
+    ActionMineGas,
     ActionMax
   };
 
   enum BWType {
-    BWTypeUnit=0,
+    BWTypeNone=0,
+    BWTypeUnit,
     BWTypeTech,
     BWTypeUpgrade,
     BWTypeWeapon,
     BWTypeMax
   };
+
+  inline int makeResActionId(BWType bwType, int typeId) {
+    return bwType << 16 | typeId;
+  }
+
+  inline BWType getBWTypeOfResActionId(int resActionId) {
+    return BWType(resActionId >> 16);
+  }
+
+  inline int getTypeIdOfResActionId(int resActionId) {
+    return resActionId & 0xffff;
+  }
 
   typedef struct Action {
     UnitType* casterUnitType;
@@ -39,6 +54,8 @@ namespace BWSim {
       case ActionTrain:
       case ActionMorph:
       case ActionSiege:
+      case ActionMineGas:
+      case ActionMineMinerals:
         return BWTypeUnit;
       case ActionResearch:
       case ActionSpell:
@@ -46,7 +63,7 @@ namespace BWSim {
       case ActionUpgrade:
         return BWTypeUpgrade;
       case ActionMax:
-        return BWTypeMax;
+        return BWTypeNone;
     }
   }
 
